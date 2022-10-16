@@ -14,40 +14,42 @@ contract SmartWallet {
         address vote;
     }
     mapping(address => Guard) guards;
-    
 
-    function spend(address payable to, uint amount) public {
+    modifier isOwner {
+        require(msg.sender == owner, "Caller is not the Owner");
+        _;
+    }
+
+    modifier isAllowed(uint amount) {
         if (msg.sender != owner) {
             require(spendAllowance[msg.sender] > 0, "Spending denied");
         }
         require(address(this).balance >= amount, "Out of funds");
+        _;
+    }
+    
+
+    function spend(address payable to, uint amount) public isAllowed(amount) {
         spendAllowance[msg.sender] -= amount;
         to.transfer(amount);
     }
 
-    function spendWithPayload(address payable to, uint amount, bytes memory payload) public returns(bytes memory) {
-        if (msg.sender != owner) {
-            require(spendAllowance[msg.sender] > 0, "Spending denied");
-        }
-        require(address(this).balance >= amount, "Out of funds");
+    function spendWithPayload(address payable to, uint amount, bytes memory payload) public isAllowed(amount) returns(bytes memory) {
         spendAllowance[msg.sender] -= amount;
         (bool success, bytes memory response) = to.call{value: amount}(payload);
         require(success, "Spending failed");
         return response;
     }
 
-    function allowSpending(address a, uint amount) public {
-        require(msg.sender == owner, "Whitelisting denied");
+    function allowSpending(address a, uint amount) public isOwner {
         spendAllowance[a] = amount;
     }
 
-    function addGuard(address a) public {
-        require(msg.sender == owner, "You can't add guards");
+    function addGuard(address a) public isOwner {
         guards[a] = Guard(true, false, address(0));
     }
 
-    function denySpending(address a) public {
-        require(msg.sender == owner, "Whitelisting denied");
+    function denySpending(address a) public isOwner {
         spendAllowance[a] = 0;
     }
 
